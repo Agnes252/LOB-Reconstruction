@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "lob-reconstruction"
+version = "0.1.0"
+description = "沪深两市限价订单簿（LOB）逐笔数据重建与 50ms 重采样"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+dependencies = [
+    "pandas>=2.0",
+    "numpy>=1.24",
+    "sortedcontainers>=2.4",   # SortedDict：价格档位核心数据结构
+    "pyarrow>=12.0",           # Parquet 读写
+    "tqdm>=4.65",              # 批量处理进度条
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7",
+    "pytest-cov",
+    "hypothesis",              # 属性测试（订单簿不变量）
+]
+
+[project.scripts]
+lob-single = "scripts.run_single:main"
+lob-batch  = "scripts.run_batch:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lob*", "config*", "scripts*"]
+
+[tool.pytest.ini_options]
+testpaths   = ["tests"]
+addopts     = "-v --tb=short"
+python_files= ["test_*.py"]
+
+[tool.coverage.run]
+source = ["lob", "config"]
+omit   = ["tests/*", "scripts/*"]
