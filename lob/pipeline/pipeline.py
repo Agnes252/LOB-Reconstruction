@@ -258,10 +258,10 @@ class SingleSecurityPipeline:
             for event in events:
                 self._process_event(event)
 
-        # 日终 flush
-        last_snap = self.resampler.flush(self.book, self.current_phase)
-        if last_snap is not None:
-            self.snapshots.append(last_snap)
+        # 日终补全：生成从最后一个事件到收盘的全部 carry-forward 快照
+        # 确保每只股票 50ms 网格完整覆盖至 15:00，便于跨标的时间轴对齐
+        end_snaps = self.resampler.fill_to_end(self.book, self.current_phase)
+        self.snapshots.extend(end_snaps)
 
         # 写出
         write_parquet(self.snapshots, self.output_path)

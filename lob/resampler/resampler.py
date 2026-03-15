@@ -116,12 +116,52 @@ class LOBResampler:
     def flush(self, book: OrderBook, phase: TradingPhase) -> Optional[LOBSnapshot]:
         """
         强制输出最后一个未满区间的快照（日终调用）。
+        若需要完整覆盖至收盘，请使用 fill_to_end() 替代。
         """
         if self.acc is None:
             return None
         snap = self._finalize_interval(book, phase)
         self.acc = None
         return snap
+
+    def fill_to_end(
+        self,
+        book: OrderBook,
+        phase: TradingPhase,
+    ) -> List[LOBSnapshot]:
+        """
+        日终补全：从当前位置生成 carry-forward 快照直至交易日结束（end_ms）。
+
+        用途
+        ----
+        确保每只股票在 50ms 网格上的快照序列完整覆盖全天，
+        即使当日最后一笔事件发生在 15:00 之前，也能补出后续所有静默区间的快照。
+        这是跨标的快照时间对齐（相互触发）的基础：批量处理后可按 timestamp_ms
+        对不同股票的 Parquet 做等时间轴 JOIN，无需额外插值。
+
+        实现
+        ----
+        与区间内事件触发的 carry-forward 逻辑完全一致：
+        每个静默区间输出上一时刻盘口（book 不变），订单流清零。
+        """
+        if self.acc is None:
+            return []
+
+        snaps: List[LOBSnapshot] = []
+
+        # 先输出当前未满区间
+        snaps.append(self._finalize_interval(book, phase))
+        self.next_boundary_ms += self.resample_ms
+        self._init_accumulator()
+
+        # 再依次 carry-forward 直至 end_ms
+        while self.next_boundary_ms <= self.end_ms:
+            snaps.append(self._finalize_interval(book, phase))
+            self.next_boundary_ms += self.resample_ms
+            self._init_accumulator()
+
+        self.acc = None
+        return snaps
 
     # ── 内部方法 ──────────────────────────────────────────────────────────────
 

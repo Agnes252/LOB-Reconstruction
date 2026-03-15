@@ -98,3 +98,48 @@ class TestLOBResampler:
         snaps = self.resampler.ingest(t_ms2 * 1_000_000, order2, self.book, self.phase)
         for s in snaps:
             assert s.timestamp_ms % 50 == 0, f"时间戳未对齐: {s.timestamp_ms}"
+
+    def test_fill_to_end_covers_full_day(self):
+        """
+        fill_to_end() 应补全从最后一个事件到 end_ms 的所有快照，
+        确保跨标的快照时间轴完整对齐（相互触发机制的离线等价）。
+        """
+        start_ms = 9 * 3600 * 1000        # 9:00:00.000
+        end_ms   = 9 * 3600 * 1000 + 250  # 9:00:00.250（小范围端到端测试）
+
+        resampler = LOBResampler(
+            security_id    = "000001",
+            date_unix_ms   = 0,
+            start_phase_ms = start_ms,
+            end_phase_ms   = end_ms,
+            resample_ms    = 50,
+        )
+        book  = OrderBook(security_id="000001")
+        phase = TradingPhase.CONTINUOUS_AM
+
+        # 只在第一个区间内放入一个事件
+        t_ms  = start_ms + 10
+        order = make_order(1, t_ms)
+        resampler.ingest(t_ms * 1_000_000, order, book, phase)
+
+        # fill_to_end 应从当前边界一路补全到 end_ms
+        snaps = resampler.fill_to_end(book, phase)
+
+        # 第一个边界 start_ms+50 算一个，到 end_ms=start_ms+250 一共 5 个区间
+        assert len(snaps) >= 4, f"期望 ≥4 个补全快照，实际 {len(snaps)} 个"
+
+        # 每个时间戳均应对齐到 50ms 网格
+        for s in snaps:
+            assert s.timestamp_ms % 50 == 0, f"时间戳未对齐: {s.timestamp_ms}"
+
+        # fill_to_end 调用后，acc 应被置为 None（不可再 ingest）
+        assert resampler.acc is None
+
+    def test_fill_to_end_empty_resampler(self):
+        """fill_to_end 在 acc 为 None 时应安全返回空列表"""
+        resampler = LOBResampler(security_id="000001")
+        resampler.acc = None
+        book  = OrderBook(security_id="000001")
+        phase = TradingPhase.CONTINUOUS_AM
+        snaps = resampler.fill_to_end(book, phase)
+        assert snaps == []
