@@ -16,24 +16,26 @@ ColumnMap = Dict[str, Tuple[str, Any]]
 SZSE_ORDER_COLUMNS: ColumnMap = {
     "ApplSeqNum":   ("seq_num",        int),
     "SecurityID":   ("security_id",    str),
-    "TransactTime": ("time_raw",       int),   # HHMMSSMMM 9位整数
-    "Price":        ("price",          int),   # 已×10000；市价单=0或-1
+    "MDTime":       ("time_raw",       int),   # HHMMSSMMM 9位整数（如 091500000）
+    "OrderPrice":   ("price",          float), # 浮点价格（如18.52），解析后×10000转整数
     "OrderQty":     ("qty",            int),
-    "Side":         ("side_raw",       str),   # '1'=买 '2'=卖
-    "OrdType":      ("ord_type_raw",   str),   # '1'=市价 '2'=限价 'U'=本方最优
+    "OrderBSFlag":  ("side_raw",       str),   # '1'=买 '2'=卖
+    "OrderType":    ("ord_type_raw",   str),   # '1'=市价 '2'=限价 '3'=本方最优
     "ChannelNo":    ("channel_no",     int),   # 逐笔数据通道号
 }
 
 SZSE_TRADE_COLUMNS: ColumnMap = {
-    "ApplSeqNum":        ("seq_num",    int),
-    "SecurityID":        ("security_id", str),
-    "TransactTime":      ("time_raw",   int),
-    "BidApplSeqNum":     ("bid_seq",    int),
-    "OfferApplSeqNum":   ("ask_seq",    int),
-    "LastPx":            ("price",      int),  # 已×10000
-    "LastQty":           ("qty",        int),
-    "ExecType":          ("exec_type",  str),  # 'F'=成交 '4'=撤单
-    "ChannelNo":         ("channel_no", int),  # 逐笔数据通道号（与order同域内唯一编号）
+    "ApplSeqNum":   ("seq_num",        int),
+    "SecurityID":   ("security_id",    str),
+    "MDTime":       ("time_raw",       int),   # HHMMSSMMM 9位整数
+    "TradeBuyNo":   ("bid_seq",        int),   # 买方委托 ApplSeqNum（撤单时对应被撤委托号，卖方撤单则为0）
+    "TradeSellNo":  ("ask_seq",        int),   # 卖方委托 ApplSeqNum（撤单时对应被撤委托号，买方撤单则为0）
+    "TradePrice":   ("price",          float), # 浮点成交价（撤单时为0），解析后×10000转整数
+    "TradeQty":     ("qty",            int),
+    "TradeMoney":   ("turnover",       float), # 成交金额（元）
+    "TradeType":    ("exec_type",      str),   # '1'=撤销 '2'=成交（对应文档 ExecType：撤销=1 成交=2）
+    "TradeBSFlag":  ("trade_bs_flag",  str),   # '1'=主买 '2'=主卖
+    "ChannelNo":    ("channel_no",     int),   # 逐笔数据通道号（与order同域内唯一编号）
 }
 
 # 深交所委托方向映射
@@ -43,7 +45,8 @@ SZSE_SIDE_MAP = {"1": "bid", "2": "ask"}
 SZSE_ORD_TYPE_MAP = {
     "1": "market",
     "2": "limit",
-    "U": "own_best",   # 本方最优：买单用当前买一价，卖单用当前卖一价；若同侧无挂单则废单
+    "3": "own_best",   # 本方最优（数据中用整数 3）
+    "U": "own_best",   # 本方最优（旧格式字母 U，保留兼容）
 }
 
 # 深交所交易阶段代码

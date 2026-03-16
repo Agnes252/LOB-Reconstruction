@@ -37,7 +37,7 @@ from lob.phase.phase_classifier import TradingPhase
 logger = logging.getLogger(__name__)
 
 # 深交所创业板价格笼子范围（偏离基准价比例）
-_DEFAULT_CAGE_PCT = 0.10  # 10%（创业板典型值）
+_DEFAULT_CAGE_PCT = 0.02  # 2%（创业板典型值）
 
 
 class SZSEEngine:
@@ -47,7 +47,7 @@ class SZSEEngine:
     Parameters
     ----------
     enable_price_cage : 是否启用价格笼子待入池（仅创业板等需要，默认关闭）
-    cage_pct          : 价格笼子范围（偏离基准价百分比），默认 10%
+    cage_pct          : 价格笼子范围（偏离基准价百分比），默认 2%
     """
 
     def __init__(
@@ -194,10 +194,11 @@ class SZSEEngine:
         acc.add_trade(TradeEvent(
             price        = trade.price,
             qty          = trade.qty,
-            bs_flag      = "B",   # 深交所成交流无主买/主卖标志，统一记为 B
+            bs_flag      = trade.trade_bs_flag or "B",  # 'B'=主买 'S'=主卖，旧格式无此字段时默认'B'
             bid_seq      = trade.bid_order_seq,
             ask_seq      = trade.ask_order_seq,
             timestamp_ns = trade.timestamp_ns,
+            turnover     = trade.turnover,
         ))
 
         # 更新最新成交价并尝试释放价格笼子待入池（PDF §3）
